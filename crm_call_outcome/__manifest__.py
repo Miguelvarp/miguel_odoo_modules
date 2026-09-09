@@ -1,7 +1,7 @@
 {
     "name": "CRM Call Outcome",
     "summary": "Popup to log a call outcome (status + disposition + feedback) on leads/opportunities",
-    "version": "19.0.2.1.1",
+    "version": "19.0.2.1.2",
     "category": "Sales/CRM",
     "author": "Miguel Vanduffel",
     "maintainer": "Miguel Vanduffel",
