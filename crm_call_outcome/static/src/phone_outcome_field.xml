@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="crm_call_outcome.PhoneOutcomeField">
+        <t t-call="web.PhoneField"/>
+        <button class="btn btn-link o_field_phone_call_outcome ms-1"
+                t-on-click="onLogCall"
+                title="Log call outcome">
+            <i class="fa fa-phone"/>
+        </button>
+    </t>
+
+</templates>

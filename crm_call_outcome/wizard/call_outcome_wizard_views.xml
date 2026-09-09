@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="crm_call_outcome_wizard_form" model="ir.ui.view">
+        <field name="name">crm.call.outcome.wizard.form</field>
+        <field name="model">crm.call.outcome.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Log Call Outcome" class="o_call_outcome_form">
+                <field name="lead_id" invisible="1"/>
+                <group>
+                    <field name="partner_name" readonly="1"/>
+                    <field name="phone" readonly="1"/>
+                </group>
+
+                <separator string="Call status"/>
+                <field name="call_status" widget="radio" nolabel="1"
+                       options="{'horizontal': true}"/>
+
+                <separator string="Outcome"/>
+                <field name="disposition" widget="radio" nolabel="1"/>
+                <group invisible="disposition != 'callback_requested'">
+                    <field name="callback_date"
+                           required="disposition == 'callback_requested'"/>
+                </group>
+
+                <separator string="Feedback"/>
+                <field name="feedback" nolabel="1"
+                       placeholder="Notes about this call…"/>
+
+                <footer>
+                    <button name="action_log_call" type="object"
+                            string="Log call" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_crm_call_outcome_wizard" model="ir.actions.act_window">
+        <field name="name">Log Call Outcome</field>
+        <field name="res_model">crm.call.outcome.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{'default_lead_id': active_id}</field>
+        <field name="binding_model_id" ref="crm.model_crm_lead"/>
+        <field name="binding_view_types">form</field>
+    </record>
+
+</odoo>

@@ -1,0 +1,4 @@
+/* Give the Call Outcome popup a comfortable width so radio labels don't wrap. */
+.o_dialog .modal-dialog:has(.o_call_outcome_form) {
+    max-width: 640px;
+}
