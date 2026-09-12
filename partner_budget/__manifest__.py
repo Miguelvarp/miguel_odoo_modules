@@ -1,0 +1,20 @@
+{
+    "name": "Partner Budget Tracking",
+    "summary": "Per-customer yearly budget vs. invoiced, pipeline and backlog to invoice",
+    "version": "19.0.1.0.0",
+    "category": "Sales/CRM",
+    "author": "Miguel Vanduffel",
+    "maintainer": "Miguel Vanduffel",
+    "company": "Arplama",
+    "license": "LGPL-3",
+    "depends": ["sale", "crm"],
+    "data": [
+        "security/ir.model.access.csv",
+        "security/partner_budget_rules.xml",
+        "views/partner_budget_views.xml",
+        "views/res_partner_views.xml",
+    ],
+    "installable": True,
+    "application": False,
+    "auto_install": False,
+}
