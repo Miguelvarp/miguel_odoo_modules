@@ -28,6 +28,7 @@
                         <group string="This Year">
                             <field name="company_currency_id" invisible="1"/>
                             <field name="budget_amount"/>
+                            <field name="confirmed_orders_amount"/>
                             <field name="invoiced_amount"/>
                             <field name="budget_achieved_pct" widget="percentage"/>
                             <field name="budget_remaining"/>
@@ -44,12 +45,13 @@
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="year"/>
                             <field name="budget_amount"/>
+                            <field name="confirmed_orders_amount"/>
                             <field name="invoiced_amount"/>
                             <field name="budget_achieved_pct" widget="percentage"/>
                             <field name="remaining_amount"/>
                             <field name="currency_id" column_invisible="1"/>
                             <field name="notes" optional="hide"/>
-                            <button name="action_refresh_invoiced" type="object"
+                            <button name="action_refresh" type="object"
                                     string="Refresh" icon="fa-refresh"/>
                         </tree>
                     </field>
@@ -67,6 +69,7 @@
                 <field name="name"/>
                 <field name="company_currency_id" invisible="1"/>
                 <field name="budget_amount" sum="Total"/>
+                <field name="confirmed_orders_amount" sum="Total"/>
                 <field name="invoiced_amount" sum="Total"/>
                 <field name="budget_achieved_pct" widget="percentage"/>
                 <field name="budget_remaining" sum="Total"/>

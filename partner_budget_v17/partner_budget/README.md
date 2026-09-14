@@ -1,20 +1,23 @@
 # Partner Budget Tracking
 
-Per-customer yearly budget vs. what's actually happening in Odoo — invoiced,
-pipeline, and backlog still to invoice. No manual reporting needed: everything
-except the budget figure itself is computed from existing Odoo data
-(`account.move`, `crm.lead`, `sale.order`).
+Per-customer yearly budget vs. what's actually happening in Odoo — confirmed
+orders, invoiced, and backlog still to invoice. No manual reporting needed:
+everything except the budget figure itself is computed from existing Odoo
+data (`account.move`, `crm.lead`, `sale.order`).
 
 ## What it adds
 
-**New model `partner.budget`** — one row per (customer, company, year): a
-`budget_amount` plus a per-row Invoiced / Reached % / Remaining, auto-filled
-when the row is created and re-checkable any time with the **Refresh** button.
+**New model `partner.budget`** — one row per (customer, company, year):
+Budget, Confirmed Orders, Invoiced, Reached %, Remaining. Only `budget_amount`
+is typed in; the rest is auto-filled when the row is created and re-checkable
+any time with **Refresh** (per row, or **Refresh Selected** above the list to
+recheck many rows — or every row matching your filter — in one click).
 
 **On the Customer form** (`res.partner`):
 
 - A **Budget** tab:
-  - This Year: Budget, Invoiced, Budget Reached (%), Budget Remaining
+  - This Year: Budget, Confirmed Orders, Invoiced, Budget Reached (%),
+    Budget Remaining
   - Pipeline & Backlog: Pipeline (Expected), Pipeline (Weighted by
     probability), Backlog to Invoice
   - An editable list of budget lines — add a row per company/year here.
@@ -39,29 +42,47 @@ if you're re-importing to change amounts.
 
 ## Definitions — everything below is untaxed / excludes VAT
 
-- **Invoiced (This Year)**: posted customer invoices minus credit notes
-  (`amount_untaxed_signed`), current calendar year, current company. This
-  Odoo field is already expressed in the **company's own currency**
-  (converted at the invoice's date rate) regardless of what currency the
-  invoice was raised in — nothing extra needed here.
+- **Rolled up to the ultimate parent company** (`commercial_partner_id`):
+  Confirmed Orders, Invoiced and Backlog all match the customer *and every
+  individual contact under it*, not just the exact contact record the order
+  or invoice happens to be attached to or the budget line happens to be set
+  on. Whichever contact a salesperson picked when creating the order still
+  counts against the company's budget.
+- **Confirmed Orders (of the budget year)**: the full untaxed value of
+  confirmed sales orders (`state = sale`) whose order date falls in that
+  year — regardless of whether they've been invoiced yet. A leading
+  indicator alongside Invoiced (the lagging, "actually billed" figure).
+  Converted to company currency (orders are in their own currency, not
+  necessarily the company's).
+- **Invoiced (of the budget year)**: posted customer invoices minus credit
+  notes (`amount_untaxed_signed`), matching the line's own year. This Odoo
+  field is already expressed in the **company's own currency** (converted
+  at the invoice's date rate) regardless of what currency the invoice was
+  raised in — nothing extra needed here.
+- **Reached %** / **Remaining**: still Budget vs. Invoiced specifically (not
+  Confirmed Orders) — unchanged definition, just now correctly rolled up.
 - **Pipeline (Expected)** / **Pipeline (Weighted)**: open opportunities
-  (`probability < 100` — excludes both lost and already-won) linked
-  *directly* to the customer record, summed on `expected_revenue` /
-  `expected_revenue × probability`. **Stored + auto-recomputed**: installing
-  or upgrading this module backfills it for every existing opportunity, and
-  editing an opportunity's expected revenue or probability updates it
-  immediately — not just for newly created opportunities. Note: because a
-  stored field can't safely depend on which company happens to be active
-  when it's viewed, this one is **not company-scoped** and does **not** roll
-  up child contacts the way Invoiced/Backlog do (see below).
-- **Backlog to Invoice**: confirmed sales orders (`state = sale`), summed on
-  the line-level `untaxed_amount_to_invoice`. That field is in the *order's
-  own currency*, not the company's, so each line is explicitly converted to
-  the company currency at today's rate before summing (`Currency._convert`).
-- Invoiced/Backlog/the This-Year summary are scoped to **the active company**
-  and match the customer *and its child contacts* (`child_of`), so they roll
-  up correctly whether invoices/opportunities sit on the company record or
-  on a contact under it.
+  (`probability < 100` — excludes both lost and already-won) linked to the
+  customer's ultimate parent company *or any direct contact under it*,
+  summed on `expected_revenue` / `expected_revenue × probability`. **Stored +
+  auto-recomputed**: installing or upgrading this module backfills it for
+  every existing opportunity, and editing an opportunity's expected revenue
+  or probability updates it immediately — not just for newly created
+  opportunities. Opening either the parent's form or a child contact's form
+  shows the same total. One difference from the rest of this module, for a
+  reason that doesn't apply to it (a stored field can't safely depend on
+  which company happens to be active when it's viewed): pipeline is **not
+  company-scoped** — it aggregates across all companies. Flag if that
+  becomes a problem in practice; fixing it adds real complexity (per-company
+  stored fields, or giving up the auto-recompute).
+- **Backlog to Invoice**: confirmed sales orders, summed on the line-level
+  `untaxed_amount_to_invoice`, across **any** order year (unlike Confirmed
+  Orders/Invoiced above, which are scoped to one specific budget year) — a
+  standing "what's still owed" figure. That field is in the order's own
+  currency, so each line is explicitly converted to company currency at
+  today's rate before summing.
+- Invoiced/Confirmed Orders/Backlog/the This-Year summary are all further
+  scoped to **the active company**.
 
 ## Testing locally
 

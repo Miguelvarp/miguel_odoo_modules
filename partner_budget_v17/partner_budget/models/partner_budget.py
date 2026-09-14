@@ -26,6 +26,12 @@ class PartnerBudget(models.Model):
         string="Budget", required=True, currency_field="currency_id",
         help="Enter as untaxed (net) revenue, to match Invoiced below.",
     )
+    confirmed_orders_amount = fields.Monetary(
+        string="Confirmed Orders", currency_field="currency_id", readonly=True, copy=False,
+        help="Untaxed value of confirmed sales orders placed during this year "
+             "(regardless of invoicing status yet), converted to company currency. "
+             "Set when the line is created; click Refresh to recheck later.",
+    )
     invoiced_amount = fields.Monetary(
         string="Invoiced", currency_field="currency_id", readonly=True, copy=False,
         help="Untaxed amount posted on customer invoices for this customer/company/"
@@ -56,20 +62,44 @@ class PartnerBudget(models.Model):
     def _get_invoiced_amount(self):
         self.ensure_one()
         year = int(self.year)
+        # Roll up to the ultimate parent company, so invoices posted against
+        # any individual contact under it still count.
+        commercial = self.partner_id.commercial_partner_id
         moves = self.env["account.move"].search([
-            ("partner_id", "child_of", self.partner_id.id),
+            ("partner_id", "child_of", commercial.id),
             ("move_type", "in", ["out_invoice", "out_refund"]),
             ("state", "=", "posted"),
             ("company_id", "=", self.company_id.id),
             ("invoice_date", ">=", f"{year}-01-01"),
             ("invoice_date", "<=", f"{year}-12-31"),
         ])
+        # amount_untaxed_signed is already expressed in company currency.
         return sum(moves.mapped("amount_untaxed_signed"))
 
-    def action_refresh_invoiced(self):
+    def _get_confirmed_orders_amount(self):
+        self.ensure_one()
+        year = int(self.year)
+        commercial = self.partner_id.commercial_partner_id
+        orders = self.env["sale.order"].search([
+            ("partner_id", "child_of", commercial.id),
+            ("state", "=", "sale"),
+            ("company_id", "=", self.company_id.id),
+            ("date_order", ">=", f"{year}-01-01"),
+            ("date_order", "<", f"{year + 1}-01-01"),
+        ])
+        today = fields.Date.context_today(self)
+        return sum(
+            order.currency_id._convert(
+                order.amount_untaxed, self.currency_id, self.company_id, today,
+            )
+            for order in orders
+        )
+
+    def action_refresh(self):
         for line in self:
             invoiced = line._get_invoiced_amount()
             line.invoiced_amount = invoiced
+            line.confirmed_orders_amount = line._get_confirmed_orders_amount()
             line.budget_achieved_pct = (
                 invoiced / line.budget_amount if line.budget_amount else 0.0
             )
@@ -78,5 +108,5 @@ class PartnerBudget(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-        records.action_refresh_invoiced()
+        records.action_refresh()
         return records

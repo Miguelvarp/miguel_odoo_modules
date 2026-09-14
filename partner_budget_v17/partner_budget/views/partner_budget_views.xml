@@ -7,19 +7,20 @@
         <field name="arch" type="xml">
             <tree string="Budget Lines" editable="bottom">
                 <header>
-                    <button name="action_refresh_invoiced" type="object"
-                            string="Refresh Invoiced" icon="fa-refresh"/>
+                    <button name="action_refresh" type="object"
+                            string="Refresh Selected" icon="fa-refresh"/>
                 </header>
                 <field name="partner_id"/>
                 <field name="company_id" groups="base.group_multi_company"/>
                 <field name="year"/>
                 <field name="budget_amount" sum="Total"/>
+                <field name="confirmed_orders_amount" sum="Total"/>
                 <field name="invoiced_amount" sum="Total"/>
                 <field name="budget_achieved_pct" widget="percentage"/>
                 <field name="remaining_amount" sum="Total"/>
                 <field name="currency_id" column_invisible="1"/>
                 <field name="notes" optional="hide"/>
-                <button name="action_refresh_invoiced" type="object"
+                <button name="action_refresh" type="object"
                         string="Refresh" icon="fa-refresh"/>
             </tree>
         </field>
@@ -33,10 +34,9 @@
                 <sheet>
                     <div class="oe_button_box" name="button_box">
                         <button class="oe_stat_button" type="object"
-                                name="action_refresh_invoiced" icon="fa-refresh">
+                                name="action_refresh" icon="fa-refresh">
                             <div class="o_stat_info">
                                 <span class="o_stat_text">Refresh</span>
-                                <span class="o_stat_text">Invoiced</span>
                             </div>
                         </button>
                     </div>
@@ -49,6 +49,7 @@
                         </group>
                         <group>
                             <field name="budget_amount"/>
+                            <field name="confirmed_orders_amount"/>
                             <field name="invoiced_amount"/>
                             <field name="budget_achieved_pct" widget="percentage"/>
                             <field name="remaining_amount"/>
@@ -72,7 +73,9 @@
                 Add one customer at a time here, or use the "Favorites &gt; Import
                 records" button above to bulk-load budgets for every customer at
                 once from an Excel/CSV file (Odoo's Import wizard can generate a
-                blank template for you with the right column headers).
+                blank template for you with the right column headers). Select
+                rows and use "Refresh Selected" above the list to recheck
+                Confirmed Orders / Invoiced in bulk.
             </p>
         </field>
     </record>
