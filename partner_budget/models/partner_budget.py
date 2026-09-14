@@ -43,6 +43,32 @@ class PartnerBudget(models.Model):
     )
     notes = fields.Text(string="Notes")
 
+    # EUR-converted mirrors of the amounts above, so the Budget by Year /
+    # Company list can always be read in one currency regardless of which
+    # company's row it is. The native-currency fields above stay the source
+    # of truth (budget_amount is still what gets entered per company).
+    eur_currency_id = fields.Many2one(
+        "res.currency", string="EUR", compute="_compute_eur_currency_id",
+    )
+    budget_amount_eur = fields.Monetary(
+        string="Budget (EUR)", currency_field="eur_currency_id",
+        compute="_compute_eur_amounts", inverse="_inverse_budget_amount_eur",
+        help="Budget converted to EUR at today's spot rate. Editing this "
+             "converts back and updates the native-currency Budget.",
+    )
+    confirmed_orders_amount_eur = fields.Monetary(
+        string="Confirmed Orders (EUR)", currency_field="eur_currency_id",
+        compute="_compute_eur_amounts",
+    )
+    invoiced_amount_eur = fields.Monetary(
+        string="Invoiced (EUR)", currency_field="eur_currency_id",
+        compute="_compute_eur_amounts",
+    )
+    remaining_amount_eur = fields.Monetary(
+        string="Remaining (EUR)", currency_field="eur_currency_id",
+        compute="_compute_eur_amounts",
+    )
+
     _sql_constraints = [
         (
             "partner_company_year_uniq",
@@ -54,6 +80,40 @@ class PartnerBudget(models.Model):
     def _selection_year(self):
         current = fields.Date.context_today(self).year
         return [(str(y), str(y)) for y in range(current - 5, current + 4)]
+
+    def _compute_eur_currency_id(self):
+        eur = self.env.ref("base.EUR")
+        for rec in self:
+            rec.eur_currency_id = eur
+
+    @api.depends(
+        "budget_amount", "confirmed_orders_amount", "invoiced_amount",
+        "remaining_amount", "currency_id", "company_id",
+    )
+    def _compute_eur_amounts(self):
+        eur = self.env.ref("base.EUR")
+        today = fields.Date.context_today(self)
+        for rec in self:
+            rec.budget_amount_eur = rec.currency_id._convert(
+                rec.budget_amount, eur, rec.company_id, today,
+            )
+            rec.confirmed_orders_amount_eur = rec.currency_id._convert(
+                rec.confirmed_orders_amount, eur, rec.company_id, today,
+            )
+            rec.invoiced_amount_eur = rec.currency_id._convert(
+                rec.invoiced_amount, eur, rec.company_id, today,
+            )
+            rec.remaining_amount_eur = rec.currency_id._convert(
+                rec.remaining_amount, eur, rec.company_id, today,
+            )
+
+    def _inverse_budget_amount_eur(self):
+        eur = self.env.ref("base.EUR")
+        today = fields.Date.context_today(self)
+        for rec in self:
+            rec.budget_amount = eur._convert(
+                rec.budget_amount_eur, rec.currency_id, rec.company_id, today,
+            )
 
     def _compute_display_name(self):
         for rec in self:
