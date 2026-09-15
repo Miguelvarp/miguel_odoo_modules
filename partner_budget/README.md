@@ -13,6 +13,17 @@ is typed in; the rest is auto-filled when the row is created and re-checkable
 any time with **Refresh** (per row, or **Refresh Selected** above the list to
 recheck many rows — or every row matching your filter — in one click).
 
+**Company is optional** — leave it blank for a single Odoo-wide target for
+that customer/year, not tied to any one company. A blank-company line rolls
+up Confirmed Orders and Invoiced across **every** company (still scoped to
+the customer, via `commercial_partner_id`/`child_of` like every other line),
+converting each company's own-currency amounts to EUR before summing — EUR
+is also the fixed currency for entering and displaying the blank-company
+line itself. A given customer/year can still have only one blank-company
+line (enforced in Python, since a plain SQL unique constraint doesn't stop
+several NULL `company_id` rows). The Customer form's "This Year" tab falls
+back to a blank-company line when there's no line for the active company.
+
 **On the Customer form** (`res.partner`):
 
 - A **Budget** tab:
@@ -82,7 +93,8 @@ if you're re-importing to change amounts.
   currency, so each line is explicitly converted to company currency at
   today's rate before summing.
 - Invoiced/Confirmed Orders/Backlog/the This-Year summary are all further
-  scoped to **the active company**.
+  scoped to **the active company** — except a blank-company budget line
+  (see above), which is Odoo-wide by design.
 
 ## Testing locally
 

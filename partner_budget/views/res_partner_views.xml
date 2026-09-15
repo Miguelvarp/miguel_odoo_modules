@@ -42,7 +42,7 @@
                     <separator string="Budget by Year / Company"/>
                     <field name="budget_ids">
                         <tree editable="bottom">
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="company_id" groups="base.group_multi_company" placeholder="All Companies"/>
                             <field name="year"/>
                             <field name="eur_currency_id" column_invisible="1"/>
                             <field name="budget_amount_eur" string="Budget"/>

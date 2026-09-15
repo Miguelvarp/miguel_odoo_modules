@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class PartnerBudget(models.Model):
@@ -11,8 +12,11 @@ class PartnerBudget(models.Model):
         ondelete="cascade", index=True,
     )
     company_id = fields.Many2one(
-        "res.company", string="Company", required=True,
+        "res.company", string="Company",
         default=lambda self: self.env.company,
+        help="Leave blank for a single Odoo-wide target for this customer, "
+             "not tied to one company: Confirmed Orders/Invoiced then roll "
+             "up every company's activity, converted to EUR.",
     )
     year = fields.Selection(
         selection="_selection_year", string="Year", required=True,
@@ -20,7 +24,7 @@ class PartnerBudget(models.Model):
     )
     currency_id = fields.Many2one(
         "res.currency", string="Currency",
-        related="company_id.currency_id", store=True, readonly=True,
+        compute="_compute_currency_id", store=True, readonly=True,
     )
     budget_amount = fields.Monetary(
         string="Budget", required=True, currency_field="currency_id",
@@ -81,6 +85,32 @@ class PartnerBudget(models.Model):
         current = fields.Date.context_today(self).year
         return [(str(y), str(y)) for y in range(current - 5, current + 4)]
 
+    @api.constrains("partner_id", "company_id", "year")
+    def _check_unique_all_companies_line(self):
+        # The SQL unique constraint above doesn't catch this: Postgres treats
+        # every NULL company_id as distinct, so it would happily allow several
+        # "all companies" (blank company_id) lines for the same customer/year.
+        for rec in self:
+            if rec.company_id:
+                continue
+            duplicate = self.search([
+                ("id", "!=", rec.id),
+                ("partner_id", "=", rec.partner_id.id),
+                ("company_id", "=", False),
+                ("year", "=", rec.year),
+            ], limit=1)
+            if duplicate:
+                raise ValidationError(
+                    "There is already an all-companies budget line for this "
+                    "customer and year."
+                )
+
+    @api.depends("company_id", "company_id.currency_id")
+    def _compute_currency_id(self):
+        eur = self.env.ref("base.EUR")
+        for rec in self:
+            rec.currency_id = rec.company_id.currency_id or eur
+
     def _compute_eur_currency_id(self):
         eur = self.env.ref("base.EUR")
         for rec in self:
@@ -117,7 +147,8 @@ class PartnerBudget(models.Model):
 
     def _compute_display_name(self):
         for rec in self:
-            rec.display_name = f"{rec.partner_id.display_name} · {rec.company_id.name} · {rec.year}"
+            company_label = rec.company_id.name or "All Companies"
+            rec.display_name = f"{rec.partner_id.display_name} · {company_label} · {rec.year}"
 
     def _get_invoiced_amount(self):
         self.ensure_one()
@@ -125,32 +156,45 @@ class PartnerBudget(models.Model):
         # Roll up to the ultimate parent company, so invoices posted against
         # any individual contact under it still count.
         commercial = self.partner_id.commercial_partner_id
-        moves = self.env["account.move"].search([
+        domain = [
             ("partner_id", "child_of", commercial.id),
             ("move_type", "in", ["out_invoice", "out_refund"]),
             ("state", "=", "posted"),
-            ("company_id", "=", self.company_id.id),
             ("invoice_date", ">=", f"{year}-01-01"),
             ("invoice_date", "<=", f"{year}-12-31"),
-        ])
-        # amount_untaxed_signed is already expressed in company currency.
-        return sum(moves.mapped("amount_untaxed_signed"))
+        ]
+        # Blank company_id means "all companies" - don't scope to just one.
+        if self.company_id:
+            domain.append(("company_id", "=", self.company_id.id))
+        moves = self.env["account.move"].search(domain)
+        today = fields.Date.context_today(self)
+        # amount_untaxed_signed is expressed in each move's own company
+        # currency, so it needs converting when rolling up across companies
+        # that don't all share the line's currency (a no-op when they do).
+        return sum(
+            move.company_id.currency_id._convert(
+                move.amount_untaxed_signed, self.currency_id, move.company_id, today,
+            )
+            for move in moves
+        )
 
     def _get_confirmed_orders_amount(self):
         self.ensure_one()
         year = int(self.year)
         commercial = self.partner_id.commercial_partner_id
-        orders = self.env["sale.order"].search([
+        domain = [
             ("partner_id", "child_of", commercial.id),
             ("state", "=", "sale"),
-            ("company_id", "=", self.company_id.id),
             ("date_order", ">=", f"{year}-01-01"),
             ("date_order", "<", f"{year + 1}-01-01"),
-        ])
+        ]
+        if self.company_id:
+            domain.append(("company_id", "=", self.company_id.id))
+        orders = self.env["sale.order"].search(domain)
         today = fields.Date.context_today(self)
         return sum(
             order.currency_id._convert(
-                order.amount_untaxed, self.currency_id, self.company_id, today,
+                order.amount_untaxed, self.currency_id, order.company_id, today,
             )
             for order in orders
         )
