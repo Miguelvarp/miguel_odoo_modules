@@ -11,7 +11,7 @@
                             string="Refresh Selected" icon="fa-refresh"/>
                 </header>
                 <field name="partner_id"/>
-                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="company_id" groups="base.group_multi_company" placeholder="All Companies"/>
                 <field name="year"/>
                 <field name="budget_amount" sum="Total"/>
                 <field name="confirmed_orders_amount" sum="Total"/>
@@ -43,7 +43,7 @@
                     <group>
                         <group>
                             <field name="partner_id"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="company_id" groups="base.group_multi_company" placeholder="All Companies"/>
                             <field name="year"/>
                             <field name="currency_id" invisible="1"/>
                         </group>

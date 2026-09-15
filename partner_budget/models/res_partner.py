@@ -80,6 +80,22 @@ class ResPartner(models.Model):
                 ("company_id", "=", company.id),
                 ("year", "=", str(year)),
             ], limit=1)
+            if not budget:
+                # Fall back to an "all companies" line (blank company_id) if
+                # there's no line specific to the active company.
+                budget = self.env["partner.budget"].search([
+                    ("partner_id", "=", partner.id),
+                    ("company_id", "=", False),
+                    ("year", "=", str(year)),
+                ], limit=1)
+            # A blank-company line is stored in EUR, not necessarily this
+            # company's currency, so convert before comparing to invoiced.
+            budget_amount = (
+                budget.currency_id._convert(
+                    budget.budget_amount, company_currency, company, today,
+                )
+                if budget else 0.0
+            )
 
             moves = self.env["account.move"].search([
                 ("partner_id", "child_of", commercial.id),
@@ -117,13 +133,13 @@ class ResPartner(models.Model):
             )
 
             partner.company_currency_id = company_currency
-            partner.budget_amount = budget.budget_amount
+            partner.budget_amount = budget_amount
             partner.confirmed_orders_amount = confirmed_this_year
             partner.invoiced_amount = invoiced
             partner.budget_achieved_pct = (
-                invoiced / budget.budget_amount if budget.budget_amount else 0.0
+                invoiced / budget_amount if budget_amount else 0.0
             )
-            partner.budget_remaining = budget.budget_amount - invoiced
+            partner.budget_remaining = budget_amount - invoiced
             partner.invoice_backlog_amount = backlog
 
     @api.depends(
