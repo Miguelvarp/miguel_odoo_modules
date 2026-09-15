@@ -2,7 +2,7 @@
     "name": "Arplama Batch Payment Bank Export",
     "summary": "Auto-generate and attach a Raiffeisen-format bank import file "
                 "when an outbound manual payment batch is validated",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.2",
     "category": "Accounting/Accounting",
     "author": "Miguel Vanduffel",
     "maintainer": "Miguel Vanduffel",

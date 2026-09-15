@@ -30,34 +30,49 @@ FILE_COLUMNS = [
 class AccountBatchPayment(models.Model):
     _inherit = "account.batch.payment"
 
-    def write(self, vals):
-        to_generate = self.env["account.batch.payment"]
-        if vals.get("state") == "sent":
-            to_generate = self.filtered(lambda b: b.state != "sent")
-
-        res = super().write(vals)
-
-        for batch in to_generate:
-            if batch.batch_type == "outbound" and batch.payment_method_code == "manual":
+    def _send_after_validation(self):
+        # EXTENDS account_batch_payment. This is the method the "Validate"
+        # button actually funnels through (validate_batch_button ->
+        # validate_batch -> _send_after_validation -> payment_ids.mark_as_sent()).
+        #
+        # A previous version of this module hooked write() and checked for
+        # vals.get("state") == "sent" instead - that never fires: state is a
+        # compute(store=True) field recomputed from payment_ids.move_id.is_move_sent
+        # and flushed straight to the DB by the ORM, without going through this
+        # model's write(). Confirmed locally: calling the real button left
+        # state == "sent" with no attachment and no chatter note generated.
+        res = super()._send_after_validation()
+        if self.batch_type == "outbound" and self.payment_method_code == "manual":
+            try:
+                self._generate_bank_import_file()
+            except Exception as exc:
+                _logger.exception(
+                    "Failed to auto-generate bank import file for batch payment %s",
+                    self.name,
+                )
+                # Surface it in the chatter too - the server log isn't
+                # reachable from the Odoo UI, and a silent failure here
+                # looks identical to "nothing happened".
                 try:
-                    batch._generate_bank_import_file()
+                    self.message_post(
+                        body=(
+                            "⚠️ Automatic bank import file generation "
+                            f"failed: <code>{exc}</code><br/>Check the server "
+                            "log (search “arplama_batch_payment_export”) "
+                            "for the full traceback."
+                        )
+                    )
                 except Exception:
                     _logger.exception(
-                        "Failed to auto-generate bank import file for batch payment %s",
-                        batch.name,
+                        "Also failed to post the failure note to batch "
+                        "payment %s",
+                        self.name,
                     )
         return res
 
     def _generate_bank_import_file(self):
         self.ensure_one()
-        try:
-            import xlsxwriter
-        except ImportError:
-            _logger.warning(
-                "xlsxwriter not available; skipping bank import file for %s",
-                self.name,
-            )
-            return
+        import xlsxwriter  # raises ImportError -> caught and reported by write()
 
         payer_iban = (self.journal_id.bank_acc_number or "").replace(" ", "")
         warnings = []
