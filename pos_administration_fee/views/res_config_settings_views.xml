@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_administration_fee" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.pos.administration.fee</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[@id='iface_tipproduct']" position="after">
+                <setting id="administration_fee" string="Administration Fee"
+                         help="Automatically add a fee line to orders below a set total">
+                    <field name="pos_administration_fee_enabled" readonly="pos_has_active_session"/>
+                    <div class="content-group" invisible="not pos_administration_fee_enabled">
+                        <div class="row mt16">
+                            <label string="Below Total" for="pos_administration_fee_threshold" class="col-lg-3 o_light_label"/>
+                            <field name="pos_administration_fee_threshold"/>
+                        </div>
+                        <div class="row mt16">
+                            <label string="Fee Amount" for="pos_administration_fee_amount" class="col-lg-3 o_light_label"/>
+                            <field name="pos_administration_fee_amount"/>
+                        </div>
+                        <div class="row mt16">
+                            <label string="Fee Product" for="pos_administration_fee_product_id" class="col-lg-3 o_light_label"/>
+                            <field name="pos_administration_fee_product_id"/>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>
