@@ -65,7 +65,7 @@
         <field name="name">res.partner.budget.overview.list</field>
         <field name="model">res.partner</field>
         <field name="arch" type="xml">
-            <list string="Partner Budget Overview" create="0" delete="0" default_order="budget_achieved_pct desc">
+            <list string="Partner Budget Overview" create="0" delete="0" default_order="name">
                 <field name="name"/>
                 <field name="company_currency_id" invisible="1"/>
                 <field name="budget_amount" sum="Total"/>
