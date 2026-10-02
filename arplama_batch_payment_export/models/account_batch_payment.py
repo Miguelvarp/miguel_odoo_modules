@@ -94,7 +94,13 @@ class AccountBatchPayment(models.Model):
                 )
 
             name, name1 = self._split_beneficiary_name(payment.partner_id.name or "")
-            description = payment.ref or f"Payment {payment.name}"
+            # Odoo 18+ dropped account.payment's _inherits delegation to
+            # account.move: `ref` no longer exists on the payment. Its memo
+            # now lives in `memo`; move_id is optional in 19, so its ref is
+            # only a fallback.
+            description = (
+                payment.memo or payment.move_id.ref or f"Payment {payment.name}"
+            )
 
             sheet.write_row(row, 0, [
                 payer_iban,
