@@ -1,7 +1,7 @@
 {
     "name": "Partner Budget Tracking",
     "summary": "Per-customer yearly budget vs. invoiced, pipeline and backlog to invoice",
-    "version": "19.0.2.0.1",
+    "version": "19.0.3.0.0",
     "category": "Sales/CRM",
     "author": "Miguel Vanduffel",
     "maintainer": "Miguel Vanduffel",

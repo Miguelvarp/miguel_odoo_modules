@@ -15,7 +15,7 @@ class PartnerBudget(models.Model):
         "res.company", string="Company",
         default=lambda self: self.env.company,
         help="Leave blank for a single Odoo-wide target for this customer, "
-             "not tied to one company: Confirmed Orders/Invoiced then roll "
+             "not tied to one company: Open Orders/Invoiced then roll "
              "up every company's activity, converted to EUR.",
     )
     year = fields.Selection(
@@ -30,11 +30,18 @@ class PartnerBudget(models.Model):
         string="Budget", required=True, currency_field="currency_id",
         help="Enter as untaxed (net) revenue, to match Invoiced below.",
     )
-    confirmed_orders_amount = fields.Monetary(
-        string="Confirmed Orders", currency_field="currency_id", readonly=True, copy=False,
-        help="Untaxed value of confirmed sales orders placed during this year "
-             "(regardless of invoicing status yet), converted to company currency. "
-             "Set when the line is created; click Refresh to recheck later.",
+    open_orders_amount = fields.Monetary(
+        string="Open Orders", currency_field="currency_id", readonly=True, copy=False,
+        help="Untaxed value of every confirmed sales order line that can still "
+             "be invoiced (quantity > 0, nothing invoiced on it yet), any order "
+             "year, converted to company currency. Set when the line is "
+             "created; click Refresh to recheck later.",
+    )
+    invoiceable_amount = fields.Monetary(
+        string="Invoiceable", currency_field="currency_id", readonly=True, copy=False,
+        help="The part of Open Orders whose order line Planned Date falls in "
+             "this budget line's year. Lines without a Planned Date use their "
+             "Commitment Date instead.",
     )
     invoiced_amount = fields.Monetary(
         string="Invoiced", currency_field="currency_id", readonly=True, copy=False,
@@ -44,6 +51,8 @@ class PartnerBudget(models.Model):
     budget_achieved_pct = fields.Float(string="Reached", readonly=True, copy=False)
     remaining_amount = fields.Monetary(
         string="Remaining", currency_field="currency_id", readonly=True, copy=False,
+        help="Budget - Invoiced - Invoiceable: what is still left to find "
+             "after what's already invoiced and what's planned this year.",
     )
     notes = fields.Text(string="Notes")
 
@@ -60,8 +69,12 @@ class PartnerBudget(models.Model):
         help="Budget converted to EUR at today's spot rate. Editing this "
              "converts back and updates the native-currency Budget.",
     )
-    confirmed_orders_amount_eur = fields.Monetary(
-        string="Confirmed Orders (EUR)", currency_field="eur_currency_id",
+    open_orders_amount_eur = fields.Monetary(
+        string="Open Orders (EUR)", currency_field="eur_currency_id",
+        compute="_compute_eur_amounts",
+    )
+    invoiceable_amount_eur = fields.Monetary(
+        string="Invoiceable (EUR)", currency_field="eur_currency_id",
         compute="_compute_eur_amounts",
     )
     invoiced_amount_eur = fields.Monetary(
@@ -117,7 +130,7 @@ class PartnerBudget(models.Model):
             rec.eur_currency_id = eur
 
     @api.depends(
-        "budget_amount", "confirmed_orders_amount", "invoiced_amount",
+        "budget_amount", "open_orders_amount", "invoiceable_amount", "invoiced_amount",
         "remaining_amount", "currency_id", "company_id",
     )
     def _compute_eur_amounts(self):
@@ -127,8 +140,11 @@ class PartnerBudget(models.Model):
             rec.budget_amount_eur = rec.currency_id._convert(
                 rec.budget_amount, eur, rec.company_id, today,
             )
-            rec.confirmed_orders_amount_eur = rec.currency_id._convert(
-                rec.confirmed_orders_amount, eur, rec.company_id, today,
+            rec.open_orders_amount_eur = rec.currency_id._convert(
+                rec.open_orders_amount, eur, rec.company_id, today,
+            )
+            rec.invoiceable_amount_eur = rec.currency_id._convert(
+                rec.invoiceable_amount, eur, rec.company_id, today,
             )
             rec.invoiced_amount_eur = rec.currency_id._convert(
                 rec.invoiced_amount, eur, rec.company_id, today,
@@ -178,36 +194,60 @@ class PartnerBudget(models.Model):
             for move in moves
         )
 
-    def _get_confirmed_orders_amount(self):
+    def _get_open_order_lines(self):
+        """Confirmed order lines that can still be invoiced, any order year:
+        a real quantity, order not cancelled/quotation, nothing invoiced yet."""
         self.ensure_one()
-        year = int(self.year)
         commercial = self.partner_id.commercial_partner_id
         domain = [
-            ("partner_id", "child_of", commercial.id),
+            ("order_partner_id", "child_of", commercial.id),
             ("state", "=", "sale"),
-            ("date_order", ">=", f"{year}-01-01"),
-            ("date_order", "<", f"{year + 1}-01-01"),
+            ("display_type", "=", False),
+            ("product_uom_qty", ">", 0),
+            ("qty_invoiced", "=", 0),
         ]
         if self.company_id:
             domain.append(("company_id", "=", self.company_id.id))
-        orders = self.env["sale.order"].search(domain)
+        return self.env["sale.order.line"].search(domain)
+
+    @api.model
+    def _get_line_planned_date(self, line):
+        # Both line dates are added by the implementation partner's "arplama"
+        # module, which isn't a dependency here, so guard for them. Lines
+        # without a Planned Date fall back to their Commitment Date.
+        for fname in ("planned_date", "commitment_date"):
+            if fname in line._fields and line[fname]:
+                return line[fname]
+        return False
+
+    def _get_order_amounts(self):
+        """Return (open_orders, invoiceable) in this line's currency."""
+        self.ensure_one()
+        year = int(self.year)
         today = fields.Date.context_today(self)
-        return sum(
-            order.currency_id._convert(
-                order.amount_untaxed, self.currency_id, order.company_id, today,
+        open_total = invoiceable_total = 0.0
+        for line in self._get_open_order_lines():
+            # price_subtotal is untaxed, in the order's own currency.
+            amount = line.currency_id._convert(
+                line.price_subtotal, self.currency_id, line.company_id, today,
             )
-            for order in orders
-        )
+            open_total += amount
+            planned = self._get_line_planned_date(line)
+            if planned and planned.year == year:
+                invoiceable_total += amount
+        return open_total, invoiceable_total
 
     def action_refresh(self):
         for line in self:
             invoiced = line._get_invoiced_amount()
             line.invoiced_amount = invoiced
-            line.confirmed_orders_amount = line._get_confirmed_orders_amount()
+            open_orders, invoiceable = line._get_order_amounts()
+            line.open_orders_amount = open_orders
+            line.invoiceable_amount = invoiceable
             line.budget_achieved_pct = (
                 invoiced / line.budget_amount if line.budget_amount else 0.0
             )
-            line.remaining_amount = line.budget_amount - invoiced
+            line.remaining_amount = line.budget_amount - invoiced - invoiceable
 
     @api.model_create_multi
     def create(self, vals_list):
