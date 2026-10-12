@@ -46,7 +46,8 @@
                             <field name="year"/>
                             <field name="eur_currency_id" column_invisible="1"/>
                             <field name="budget_amount_eur" string="Budget"/>
-                            <field name="confirmed_orders_amount_eur" string="Confirmed Orders"/>
+                            <field name="open_orders_amount_eur" string="Open Orders"/>
+                            <field name="invoiceable_amount_eur" string="Invoiceable"/>
                             <field name="invoiced_amount_eur" string="Invoiced"/>
                             <field name="budget_achieved_pct" widget="percentage"/>
                             <field name="remaining_amount_eur" string="Remaining"/>
