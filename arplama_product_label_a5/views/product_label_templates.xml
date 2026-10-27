@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- A5 paper format (borderless) -->
+    <record id="paperformat_a5_label" model="report.paperformat">
+        <field name="name">A5 Label Sheet (2x4)</field>
+        <field name="format">A5</field>
+        <field name="dpi">96</field>
+        <field name="margin_top">0</field>
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="header_line" eval="False"/>
+    </record>
+
+    <!-- Report action. report_name must equal the QWeb template's external id. -->
+    <report id="report_product_template_label_2x4_noprice"
+            string="Product Label A5 (8 per page)"
+            model="product.template"
+            report_type="qweb-pdf"
+            name="arplama_product_label_a5.report_producttemplatelabel2x4"
+            paperformat="paperformat_a5_label"/>
+
+    <!-- QWeb label layout: 2 columns x 4 rows per A5 page.
+         Loop structure mirrors Odoo's own product.report_productlabel controller. -->
+    <template id="report_producttemplatelabel2x4">
+        <t t-name="arplama_product_label_a5.report_producttemplatelabel2x4">
+            <t t-call="web.html_container">
+                <t t-foreach="range(page_numbers)" t-as="page">
+                    <div class="o_label_sheet" style="page-break-after:always;">
+                        <table class="table table-sm table-borderless"
+                               style="width:148mm; table-layout:fixed; border-collapse:collapse; margin:0;">
+                            <t t-foreach="range(4)" t-as="row">
+                                <tr>
+                                    <t t-foreach="range(2)" t-as="column">
+                                        <t t-if="not current_quantity and quantity and not (current_data and current_data[1])">
+                                            <t t-set="current_data" t-value="quantity.popitem()"/>
+                                            <t t-set="product" t-value="current_data[0]"/>
+                                            <t t-set="barcode_and_qty" t-value="current_data[1].pop()"/>
+                                            <t t-set="barcode" t-value="barcode_and_qty[0]"/>
+                                            <t t-set="current_quantity" t-value="barcode_and_qty[1]"/>
+                                        </t>
+                                        <t t-if="current_quantity">
+                                            <t t-set="make_invisible" t-value="False"/>
+                                            <t t-set="current_quantity" t-value="current_quantity - 1"/>
+                                        </t>
+                                        <t t-elif="current_data and current_data[1]">
+                                            <t t-set="barcode_and_qty" t-value="current_data[1].pop()"/>
+                                            <t t-set="barcode" t-value="barcode_and_qty[0]"/>
+                                            <t t-set="current_quantity" t-value="barcode_and_qty[1] - 1"/>
+                                        </t>
+                                        <t t-else="">
+                                            <t t-set="make_invisible" t-value="True"/>
+                                        </t>
+                                        <td t-att-style="make_invisible and 'visibility:hidden;'">
+                                            <div style="width:74mm; height:50mm; padding:1mm; text-align:center; box-sizing:border-box; border:0.5mm solid #999999; word-wrap:break-word; overflow:hidden;">
+                                                <t t-if="product">
+                                                    <div style="font-weight:bold; font-size:11px;"><span t-field="product.display_name"/></div>
+                                                    <div style="font-size:10px; padding-top:1mm;"><span t-field="product.default_code"/></div>
+                                                    <t t-if="barcode">
+                                                        <div style="padding-top:1mm;" t-out="barcode" t-options="{'widget': 'barcode', 'symbology': 'auto', 'img_style': 'width:60mm;height:12mm'}"/>
+                                                        <div style="font-size:9px;"><span t-out="barcode"/></div>
+                                                    </t>
+                                                </t>
+                                            </div>
+                                        </td>
+                                    </t>
+                                </tr>
+                            </t>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+</odoo>
