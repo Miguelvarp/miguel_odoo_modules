@@ -1,6 +1,6 @@
 {
     "name": "Arplama — Product Label A5 (2x4)",
-    "version": "19.0.1.0.0",
+    "version": "19.0.1.0.1",
     "category": "Inventory/Inventory",
     "summary": "A5 product labels, 8 per page (2 columns x 4 rows)",
     "description": """

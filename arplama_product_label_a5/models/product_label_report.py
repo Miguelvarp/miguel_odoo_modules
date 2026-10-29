@@ -9,6 +9,7 @@ class ProductLabelLayout(models.TransientModel):
     # Adds "2 x 4 (A5)" to the Format dropdown of the Print Labels wizard.
     print_format = fields.Selection(
         selection_add=[('2x4', '2 x 4 (A5)')],
+        ondelete={'2x4': 'set default'},
     )
 
     def _prepare_report_data(self):

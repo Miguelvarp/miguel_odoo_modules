@@ -14,12 +14,14 @@
     </record>
 
     <!-- Report action. report_name must equal the QWeb template's external id. -->
-    <report id="report_product_template_label_2x4_noprice"
-            string="Product Label A5 (8 per page)"
-            model="product.template"
-            report_type="qweb-pdf"
-            name="arplama_product_label_a5.report_producttemplatelabel2x4"
-            paperformat="paperformat_a5_label"/>
+    <record id="report_product_template_label_2x4_noprice" model="ir.actions.report">
+        <field name="name">Product Label A5 (8 per page)</field>
+        <field name="model">product.template</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">arplama_product_label_a5.report_producttemplatelabel2x4</field>
+        <field name="report_file">arplama_product_label_a5.report_producttemplatelabel2x4</field>
+        <field name="paperformat_id" ref="paperformat_a5_label"/>
+    </record>
 
     <!-- QWeb label layout: 2 columns x 4 rows per A5 page.
          Loop structure mirrors Odoo's own product.report_productlabel controller. -->
